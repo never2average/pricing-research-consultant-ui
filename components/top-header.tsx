@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Eye } from "lucide-react"
+import { Search, History } from "lucide-react"
 import { CurrentRunsModal } from "./current-runs-modal"
 
 export function TopHeader() {
@@ -38,11 +38,11 @@ export function TopHeader() {
 
           <Button
             size="sm"
-            className="rounded-full bg-blue-600 hover:bg-blue-700 text-white px-4"
+            className="rounded-full bg-gray-700 hover:bg-gray-800 text-white px-4"
             onClick={() => setCurrentRunsOpen(true)}
           >
-            <Eye className="w-4 h-4 mr-2" />
-            Current Runs
+            <History className="w-4 h-4" />
+            Historical Runs
           </Button>
         </div>
       </div>

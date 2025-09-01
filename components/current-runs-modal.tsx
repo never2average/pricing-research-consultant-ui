@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Play, Pause, Square, Clock, Users, TrendingUp } from "lucide-react"
+import { Play, Pause, Square, ExternalLink } from "lucide-react"
 
 interface CurrentRunsModalProps {
   open: boolean
@@ -12,38 +12,57 @@ interface CurrentRunsModalProps {
 }
 
 export function CurrentRunsModal({ open, onOpenChange }: CurrentRunsModalProps) {
+  const [selectedLogRunId, setSelectedLogRunId] = useState<string | null>(null)
   const [runs] = useState([
     {
       id: "run-001",
       name: "Pricing Test A/B",
       status: "running",
       startTime: "2024-01-15 14:30",
+      startDate: new Date("2024-01-15T14:30:00"),
       duration: "2h 15m",
       participants: 1247,
       conversion: "12.4%",
-      type: "pricing",
+      type: "pricing experiment",
+      taskDetails: "A/B testing different pricing tiers for premium subscription",
     },
     {
       id: "run-002",
       name: "Customer Segment Analysis",
       status: "paused",
       startTime: "2024-01-15 09:00",
+      startDate: new Date("2024-01-15T09:00:00"),
       duration: "5h 45m",
       participants: 892,
       conversion: "8.7%",
-      type: "segment",
+      type: "customer segmentation",
+      taskDetails: "Analyzing customer behavior patterns across different user segments",
     },
     {
       id: "run-003",
-      name: "Feature Flag Rollout",
+      name: "Monthly Revenue Report",
       status: "completed",
       startTime: "2024-01-14 16:20",
+      startDate: new Date("2024-01-14T16:20:00"),
       duration: "18h 30m",
       participants: 2156,
       conversion: "15.2%",
-      type: "feature",
+      type: "report generation",
+      taskDetails: "Generating comprehensive monthly revenue and performance analytics report",
     },
-  ])
+    {
+      id: "run-004",
+      name: "Customer Data Sync",
+      status: "running",
+      startTime: "2024-01-16 08:15",
+      startDate: new Date("2024-01-16T08:15:00"),
+      duration: "45m",
+      participants: 3421,
+      conversion: "N/A",
+      type: "data sync",
+      taskDetails: "Synchronizing customer data from CRM system with analytics database for real-time reporting",
+    },
+  ].sort((a, b) => b.startDate.getTime() - a.startDate.getTime()))
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -67,82 +86,86 @@ export function CurrentRunsModal({ open, onOpenChange }: CurrentRunsModalProps) 
       case "completed":
         return <Square className="w-3 h-3" />
       default:
-        return <Clock className="w-3 h-3" />
+        return <Square className="w-3 h-3" />
     }
+  }
+
+  const handleViewLogs = (runId: string) => {
+    setSelectedLogRunId(selectedLogRunId === runId ? null : runId)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">Current Runs</DialogTitle>
-        </DialogHeader>
+              <DialogContent className="w-[95vw] h-[70vh] max-w-none max-h-none sm:max-w-none overflow-hidden">
 
-        <div className="space-y-4">
-          {runs.map((run) => (
-            <div key={run.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <h3 className="font-medium text-gray-900">{run.name}</h3>
-                  <Badge className={`${getStatusColor(run.status)} flex items-center gap-1`}>
-                    {getStatusIcon(run.status)}
-                    {run.status}
-                  </Badge>
-                </div>
-                <div className="flex gap-2">
-                  {run.status === "running" && (
-                    <Button size="sm" variant="outline">
-                      <Pause className="w-4 h-4" />
-                    </Button>
-                  )}
-                  {run.status === "paused" && (
-                    <Button size="sm" variant="outline">
-                      <Play className="w-4 h-4" />
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline">
-                    <Square className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Clock className="w-4 h-4" />
-                  <div>
-                    <div className="font-medium">Duration</div>
-                    <div>{run.duration}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Users className="w-4 h-4" />
-                  <div>
-                    <div className="font-medium">Participants</div>
-                    <div>{run.participants.toLocaleString()}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <TrendingUp className="w-4 h-4" />
-                  <div>
-                    <div className="font-medium">Conversion</div>
-                    <div>{run.conversion}</div>
-                  </div>
-                </div>
-                <div className="text-gray-600">
-                  <div className="font-medium">Started</div>
-                  <div>{run.startTime}</div>
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="h-full">
+          <div className="overflow-y-auto max-h-[60vh]">
+            <table className="w-full">
+              <thead className="border-b bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Status</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Started On</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Task Type</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">Task Details</th>
+                  <th className="text-left py-3 px-4 font-medium text-gray-700">View Logs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {runs.map((run, index) => (
+                  <>
+                    <tr key={run.id} className={`border-b hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-25'} ${selectedLogRunId === run.id ? 'bg-blue-50' : ''}`}>
+                      <td className="py-3 px-4">
+                        <Badge className={`${getStatusColor(run.status)} flex items-center gap-1 w-fit`}>
+                          {getStatusIcon(run.status)}
+                          <span className="capitalize">{run.status}</span>
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4 text-gray-700">{run.startTime}</td>
+                      <td className="py-3 px-4">
+                        <span className="capitalize text-gray-700 font-medium">{run.type}</span>
+                      </td>
+                      <td className="py-3 px-4 text-gray-600 max-w-md">
+                        {run.taskDetails}
+                      </td>
+                      <td className="py-3 px-4">
+                        <Button
+                          size="sm"
+                          variant={selectedLogRunId === run.id ? "default" : "outline"}
+                          onClick={() => handleViewLogs(run.id)}
+                          className="flex items-center gap-1"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          {selectedLogRunId === run.id ? "Hide" : "View"}
+                        </Button>
+                      </td>
+                    </tr>
+                    {selectedLogRunId === run.id && (
+                      <tr>
+                        <td colSpan={5} className="p-0">
+                          <div className="bg-gray-50 border-t border-gray-200">
+                            <div className="p-2">
+                              <div className="space-y-2 text-sm font-mono bg-white p-4 rounded-lg max-h-[300px] overflow-y-auto border">
+                                <div className="text-green-600">[2024-01-15 14:30:15] Run {run.id} started</div>
+                                <div className="text-blue-600">[2024-01-15 14:30:45] Initializing test parameters...</div>
+                                <div className="text-blue-600">[2024-01-15 14:31:02] Loading user cohorts...</div>
+                                <div className="text-blue-600">[2024-01-15 14:31:15] Distributing traffic (50/50 split)...</div>
+                                <div className="text-orange-600">[2024-01-15 14:32:00] Warning: Higher than expected bounce rate in variant B</div>
+                                <div className="text-blue-600">[2024-01-15 14:35:22] Collecting conversion metrics...</div>
+                                <div className="text-blue-600">[2024-01-15 16:45:30] Current conversion rate: 12.4%</div>
+                                <div className="text-gray-600">[2024-01-15 16:45:31] Status: Running ({run.duration} elapsed)</div>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-          <Button>View All Runs</Button>
-        </div>
       </DialogContent>
     </Dialog>
   )

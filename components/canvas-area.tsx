@@ -5,6 +5,7 @@ import CytoscapeComponent from "react-cytoscapejs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CurrentRunsModal } from "./current-runs-modal"
 import { CustomerSegmentModal } from "./customer-segment-modal"
+import { PricingPlanModal } from "./pricing-plan-modal"
 
 const cytoscapeStylesheet = [
   {
@@ -105,6 +106,7 @@ export function CanvasArea() {
 
   const [showCurrentRunsModal, setShowCurrentRunsModal] = useState(false)
   const [showCustomerSegmentModal, setShowCustomerSegmentModal] = useState(false)
+  const [showPricingPlanModal, setShowPricingPlanModal] = useState(false)
   const [selectedNodeData, setSelectedNodeData] = useState<any>(null)
 
   const updatePercentages = (newElements: any[]) => {
@@ -178,9 +180,9 @@ export function CanvasArea() {
             setSelectedNodeData(node.data())
             setShowCustomerSegmentModal(true)
           } else if (nodeType === "pricingPlan") {
-            console.log("[v0] Opening current runs modal")
+            console.log("[v0] Opening pricing plan modal")
             setSelectedNodeData(node.data())
-            setShowCurrentRunsModal(true)
+            setShowPricingPlanModal(true)
           }
         }
       })
@@ -275,6 +277,12 @@ export function CanvasArea() {
       <CurrentRunsModal open={showCurrentRunsModal} onOpenChange={setShowCurrentRunsModal} />
 
       <CustomerSegmentModal open={showCustomerSegmentModal} onOpenChange={setShowCustomerSegmentModal} />
+
+      <PricingPlanModal 
+        open={showPricingPlanModal} 
+        onOpenChange={setShowPricingPlanModal} 
+        planData={selectedNodeData}
+      />
 
       <style jsx>{`
         :global(.connecting) {
