@@ -4,19 +4,17 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ChevronDown, FileText, Database, DollarSign } from "lucide-react"
+import { apiService } from "@/lib/api-service"
+import { DataSource } from "@/lib/api-types"
 
-const dropdownConfig = [
+const dropdownStaticConfig = [
   {
     key: "docs",
     label: "Product Data:",
     icon: FileText,
     defaultLabel: "Select option",
     storageKey: "selectedDocs",
-    options: [
-      { label: "API Documentation", value: "API Documentation" },
-      { label: "User Guide", value: "User Guide" },
-      { label: "Technical Specs", value: "Technical Specs" },
-    ],
+    apiLoader: () => apiService.getProductSources(),
   },
   {
     key: "cdp",
@@ -24,11 +22,7 @@ const dropdownConfig = [
     icon: Database,
     defaultLabel: "Select option",
     storageKey: "selectedCDP",
-    options: [
-      { label: "Customer Data", value: "Customer Data" },
-      { label: "Analytics Platform", value: "Analytics Platform" },
-      { label: "Data Pipeline", value: "Data Pipeline" },
-    ],
+    apiLoader: () => apiService.getCustomerSegmentSources(),
   },
   {
     key: "revenue",
@@ -36,26 +30,27 @@ const dropdownConfig = [
     icon: DollarSign,
     defaultLabel: "Select option",
     storageKey: "selectedRevenue",
-    options: [
-      { label: "Revenue Tracking", value: "Revenue Tracking" },
-      { label: "Pricing Models", value: "Pricing Models" },
-      { label: "Financial Reports", value: "Financial Reports" },
-    ],
+    apiLoader: () => apiService.getRevenueSources(),
   },
 ]
 
 export function ProjectDropdowns() {
   const [selections, setSelections] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {}
-    dropdownConfig.forEach((config) => {
+    dropdownStaticConfig.forEach((config) => {
       initial[config.key] = config.defaultLabel
     })
     return initial
   })
 
+  const [dropdownOptions, setDropdownOptions] = useState<Record<string, DataSource[]>>({})
+  const [loading, setLoading] = useState<Record<string, boolean>>({})
+  const [error, setError] = useState<Record<string, string | null>>({})
+
+  // Load saved selections from localStorage
   useEffect(() => {
     const loadedSelections: Record<string, string> = {}
-    dropdownConfig.forEach((config) => {
+    dropdownStaticConfig.forEach((config) => {
       const saved = localStorage.getItem(config.storageKey)
       if (saved) {
         loadedSelections[config.key] = saved
@@ -67,6 +62,33 @@ export function ProjectDropdowns() {
     }
   }, [])
 
+  // Load dropdown options from APIs
+  useEffect(() => {
+    const loadDropdownOptions = async () => {
+      for (const config of dropdownStaticConfig) {
+        try {
+          setLoading(prev => ({ ...prev, [config.key]: true }))
+          setError(prev => ({ ...prev, [config.key]: null }))
+          
+          const options = await config.apiLoader()
+          setDropdownOptions(prev => ({ ...prev, [config.key]: options }))
+        } catch (err) {
+          console.error(`Failed to load ${config.key} options:`, err)
+          setError(prev => ({ 
+            ...prev, 
+            [config.key]: err instanceof Error ? err.message : `Failed to load ${config.label.toLowerCase()}` 
+          }))
+          // Set empty options on error to prevent UI breakage
+          setDropdownOptions(prev => ({ ...prev, [config.key]: [] }))
+        } finally {
+          setLoading(prev => ({ ...prev, [config.key]: false }))
+        }
+      }
+    }
+
+    loadDropdownOptions()
+  }, [])
+
   const updateSelection = (key: string, value: string, storageKey: string) => {
     setSelections((prev) => ({ ...prev, [key]: value }))
     localStorage.setItem(storageKey, value)
@@ -74,8 +96,12 @@ export function ProjectDropdowns() {
 
   return (
     <div className="flex flex-col gap-2">
-      {dropdownConfig.map((config) => {
+      {dropdownStaticConfig.map((config) => {
         const IconComponent = config.icon
+        const isLoading = loading[config.key]
+        const hasError = error[config.key]
+        const options = dropdownOptions[config.key] || []
+        
         return (
           <div key={config.key} className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1">
@@ -84,20 +110,46 @@ export function ProjectDropdowns() {
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="bg-transparent text-xs w-32 justify-between">
-                  <span className="truncate">{selections[config.key]}</span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-transparent text-xs w-32 justify-between"
+                  disabled={isLoading}
+                >
+                  <span className="truncate">
+                    {isLoading ? "Loading..." : 
+                     hasError ? "Error" :
+                     selections[config.key]}
+                  </span>
                   <ChevronDown className="w-3 h-3 ml-1 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
-                {config.options.map((option) => (
-                  <DropdownMenuItem
-                    key={option.value}
-                    onClick={() => updateSelection(config.key, option.value, config.storageKey)}
-                  >
-                    {option.label}
+                {isLoading ? (
+                  <DropdownMenuItem disabled>
+                    <span className="text-gray-500">Loading...</span>
                   </DropdownMenuItem>
-                ))}
+                ) : hasError ? (
+                  <DropdownMenuItem disabled>
+                    <span className="text-red-500 text-xs">Error loading data</span>
+                  </DropdownMenuItem>
+                ) : options.length === 0 ? (
+                  <DropdownMenuItem disabled>
+                    <span className="text-gray-500">No data available</span>
+                  </DropdownMenuItem>
+                ) : (
+                  options.map((dataSource) => (
+                    <DropdownMenuItem
+                      key={dataSource._id}
+                      onClick={() => updateSelection(config.key, dataSource.name, config.storageKey)}
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm">{dataSource.name}</span>
+                        <span className="text-xs text-gray-500">{dataSource.source_type}</span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

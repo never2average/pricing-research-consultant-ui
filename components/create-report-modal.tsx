@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { BarChart3, X, Plus, FileText, Clock } from "lucide-react"
+import { apiService } from "@/lib/api-service"
 
 interface ReportSection {
   id: string
@@ -25,7 +26,8 @@ export function CreateReportModal({ open, onOpenChange }: CreateReportModalProps
     sections: [] as ReportSection[]
   })
 
-
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const addSection = () => {
     const newSection = {
@@ -55,16 +57,40 @@ export function CreateReportModal({ open, onOpenChange }: CreateReportModalProps
     }))
   }
 
-  const handleSubmit = () => {
-    // Here you would typically send the data to your backend
-    console.log("Creating report with:", formData)
-    // Reset form
-    setFormData({
-      name: "",
-      frequency: "",
-      sections: []
-    })
-    onOpenChange(false)
+  const handleSubmit = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Create scheduled report via API
+      await apiService.createScheduledReport({
+        name: formData.name,
+        schedule_type: "cron",
+        schedule_config: {
+          cron_expression: formData.frequency
+        },
+        sections: formData.sections.map(section => ({
+          id: section.id,
+          name: section.name,
+          prompt: section.prompt
+        }))
+      })
+
+      console.log("Scheduled report created successfully")
+      
+      // Reset form
+      setFormData({
+        name: "",
+        frequency: "",
+        sections: []
+      })
+      onOpenChange(false)
+    } catch (err) {
+      console.error('Failed to create scheduled report:', err)
+      setError(err instanceof Error ? err.message : 'Failed to create scheduled report')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -178,18 +204,30 @@ export function CreateReportModal({ open, onOpenChange }: CreateReportModalProps
           </div>
         </div>
 
+        {/* Error Display */}
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm flex-shrink-0">
+            {error}
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex gap-2 pt-4 border-t flex-shrink-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)} 
+            className="flex-1"
+            disabled={loading}
+          >
             Cancel
           </Button>
           <Button 
             onClick={handleSubmit}
-            disabled={!formData.name}
+            disabled={!formData.name || !formData.frequency || loading}
             className="flex-1"
           >
             <BarChart3 className="w-4 h-4 mr-2" />
-            Schedule Report
+            {loading ? "Creating..." : "Schedule Report"}
           </Button>
         </div>
       </DialogContent>

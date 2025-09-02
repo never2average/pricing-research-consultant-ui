@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Users } from "lucide-react"
+import { apiService } from "@/lib/api-service"
 
 interface CreateCustomerSegmentModalProps {
   open: boolean
@@ -20,19 +21,36 @@ export function CreateCustomerSegmentModal({ open, onOpenChange }: CreateCustome
     sqlQuery: "",
     columnSearch: ""
   })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-
-
-  const handleSubmit = () => {
-    console.log("Creating customer segment with:", formData)
-    
-    // Reset form
-    setFormData({
-      name: "",
-      sqlQuery: "",
-      columnSearch: ""
-    })
-    onOpenChange(false)
+  const handleSubmit = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Create customer segment via API
+      await apiService.createCustomerSegment({
+        customer_segment_name: formData.name,
+        customer_segment_uid: formData.name.toLowerCase().replace(/\s+/g, '_'),
+        customer_segment_description: formData.sqlQuery || formData.columnSearch || "Customer segment created from UI"
+      })
+      
+      console.log("Customer segment created successfully")
+      
+      // Reset form
+      setFormData({
+        name: "",
+        sqlQuery: "",
+        columnSearch: ""
+      })
+      onOpenChange(false)
+    } catch (err) {
+      console.error('Failed to create customer segment:', err)
+      setError(err instanceof Error ? err.message : 'Failed to create customer segment')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -78,18 +96,25 @@ export function CreateCustomerSegmentModal({ open, onOpenChange }: CreateCustome
           </div>
         </div>
 
+        {/* Error Display */}
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1" disabled={loading}>
             Cancel
           </Button>
           <Button 
             onClick={handleSubmit}
-            disabled={!formData.name || !formData.sqlQuery}
+            disabled={!formData.name || loading}
             className="flex-1"
           >
             <Users className="w-4 h-4 mr-2" />
-            Create Segment
+            {loading ? "Creating..." : "Create Segment"}
           </Button>
         </div>
       </DialogContent>

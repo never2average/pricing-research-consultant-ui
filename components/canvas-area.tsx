@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CurrentRunsModal } from "./current-runs-modal"
 import { CustomerSegmentModal } from "./customer-segment-modal"
 import { PricingPlanModal } from "./pricing-plan-modal"
+import { apiService } from "@/lib/api-service"
+import { CanvasData, CanvasNode, CanvasEdge } from "@/lib/api-types"
 
 const cytoscapeStylesheet = [
   {
@@ -81,33 +83,53 @@ const cytoscapeStylesheet = [
   },
 ]
 
-const initialElements = [
-  // Customer Segment nodes
-  { data: { id: "cs1", label: "CS1", type: "customerSegment" }, position: { x: 100, y: 100 } },
-  { data: { id: "cs2", label: "CS2", type: "customerSegment" }, position: { x: 100, y: 200 } },
-  { data: { id: "cs3", label: "CS3", type: "customerSegment" }, position: { x: 100, y: 300 } },
-
-  // Pricing Plan nodes
-  { data: { id: "pp1", label: "PP1", type: "pricingPlan" }, position: { x: 400, y: 100 } },
-  { data: { id: "pp2", label: "PP2", type: "pricingPlan" }, position: { x: 400, y: 200 } },
-
-  // Initial connections
-  { data: { id: "e1", source: "cs1", target: "pp1", connectionType: "finalized", percentage: "100%" } },
-  { data: { id: "e2", source: "cs2", target: "pp2", connectionType: "experimental", percentage: "60%" } },
-  { data: { id: "e3", source: "cs2", target: "pp1", connectionType: "finalized", percentage: "40%" } },
-]
+// Initial empty elements - will be loaded from API
+const initialElements: any[] = []
 
 export function CanvasArea() {
   const [elements, setElements] = useState(initialElements)
   const [connectionType, setConnectionType] = useState<"finalized" | "experimental">("finalized")
   const [isConnecting, setIsConnecting] = useState(false)
   const [sourceNode, setSourceNode] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const cyRef = useRef<any>(null)
 
   const [showCurrentRunsModal, setShowCurrentRunsModal] = useState(false)
   const [showCustomerSegmentModal, setShowCustomerSegmentModal] = useState(false)
   const [showPricingPlanModal, setShowPricingPlanModal] = useState(false)
   const [selectedNodeData, setSelectedNodeData] = useState<any>(null)
+
+  // Load canvas data from API on component mount
+  useEffect(() => {
+    loadCanvasData()
+  }, [])
+
+  const loadCanvasData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const canvasData = await apiService.getCanvasData()
+      
+      // Convert API data to cytoscape format
+      const cytoscapeElements = [
+        ...canvasData.nodes.map(node => ({
+          data: node.data,
+          position: node.position
+        })),
+        ...canvasData.edges.map(edge => ({
+          data: edge.data
+        }))
+      ]
+      
+      setElements(updatePercentages(cytoscapeElements))
+    } catch (err) {
+      console.error('Failed to load canvas data:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load canvas data')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const updatePercentages = (newElements: any[]) => {
     const edges = newElements.filter((el) => el.data.source)
@@ -138,12 +160,13 @@ export function CanvasArea() {
     if (cyRef.current) {
       const cy = cyRef.current
 
-      cy.on("tap", "node", (evt: any) => {
+      const handleNodeTap = async (evt: any) => {
         const node = evt.target
         const nodeType = node.data("type")
+        const nodeData = node.data()
         const isShiftPressed = evt.originalEvent?.shiftKey
 
-        console.log("[v0] Node clicked:", nodeType, "Shift pressed:", isShiftPressed, "Is connecting:", isConnecting)
+        console.log("[API] Node clicked:", nodeType, "Shift pressed:", isShiftPressed, "Is connecting:", isConnecting)
 
         if (isShiftPressed) {
           // Connection mode with shift key
@@ -151,22 +174,32 @@ export function CanvasArea() {
             setIsConnecting(true)
             setSourceNode(node.id())
             cy.nodes().addClass("connecting")
-            console.log("[v0] Started connection from:", node.id())
+            console.log("[API] Started connection from:", node.id())
           } else if (nodeType === "pricingPlan" && isConnecting && sourceNode) {
-            // Create new connection
-            const newEdge = {
-              data: {
-                id: `e${Date.now()}`,
-                source: sourceNode,
-                target: node.id(),
-                connectionType,
-                percentage: "100%",
-              },
+            try {
+              // Extract actual segment and plan IDs from the node data
+              const sourceNodeData = cy.getElementById(sourceNode).data()
+              const sourceSegmentId = sourceNodeData.segment_id
+              const targetPlanId = nodeData.plan_id
+              
+              console.log("[API] Creating connection:", sourceSegmentId, "->", targetPlanId)
+              
+              const result = await apiService.createCanvasConnection(
+                sourceSegmentId,
+                targetPlanId,
+                connectionType
+              )
+              
+              if (result.success) {
+                console.log("[API] Connection created successfully")
+                // Reload canvas data to reflect the new connection
+                await loadCanvasData()
+              } else {
+                console.error('[API] Failed to create connection')
+              }
+            } catch (err) {
+              console.error('[API] Error creating connection:', err)
             }
-
-            const updatedElements = updatePercentages([...elements, newEdge])
-            setElements(updatedElements)
-            console.log("[v0] Created connection:", sourceNode, "->", node.id())
 
             // Reset connection state
             setIsConnecting(false)
@@ -176,16 +209,41 @@ export function CanvasArea() {
         } else {
           // Modal opening mode without shift key
           if (nodeType === "customerSegment") {
-            console.log("[v0] Opening customer segment modal")
-            setSelectedNodeData(node.data())
+            console.log("[API] Opening customer segment modal")
+            setSelectedNodeData(nodeData)
             setShowCustomerSegmentModal(true)
           } else if (nodeType === "pricingPlan") {
-            console.log("[v0] Opening pricing plan modal")
-            setSelectedNodeData(node.data())
+            console.log("[API] Opening pricing plan modal")
+            setSelectedNodeData(nodeData)
             setShowPricingPlanModal(true)
           }
         }
-      })
+      }
+
+      const handleEdgeRightClick = async (evt: any) => {
+        const edge = evt.target
+        const edgeData = edge.data()
+
+        try {
+          console.log("[API] Deleting connection:", edgeData.link_id)
+          
+          // Delete the connection via API
+          if (edgeData.link_id) {
+            const result = await apiService.deleteCanvasConnection(edgeData.link_id)
+            if (result.success) {
+              console.log("[API] Connection deleted successfully")
+              // Reload canvas data to reflect the deletion
+              await loadCanvasData()
+            } else {
+              console.error('[API] Failed to delete connection')
+            }
+          }
+        } catch (err) {
+          console.error('[API] Error deleting connection:', err)
+        }
+      }
+
+      cy.on("tap", "node", handleNodeTap)
 
       // Cancel connection on background click
       cy.on("tap", (evt: any) => {
@@ -196,26 +254,37 @@ export function CanvasArea() {
         }
       })
 
-      cy.on("cxttap", "edge", (evt: any) => {
-        const edge = evt.target
-        const edgeId = edge.id()
+      cy.on("cxttap", "edge", handleEdgeRightClick)
 
-        // Remove the edge from elements
-        const updatedElements = elements.filter((el) => el.data.id !== edgeId)
-        const recalculatedElements = updatePercentages(updatedElements)
-        setElements(recalculatedElements)
-
-        console.log("[v0] Deleted edge:", edgeId)
-      })
-
-      cy.on("zoom", (evt) => {
+      cy.on("zoom", (evt: any) => {
         if (evt.originalEvent && evt.originalEvent.type === "click") {
           evt.preventDefault()
           evt.stopPropagation()
         }
       })
+
+      return () => {
+        cy.off("tap", "node", handleNodeTap)
+        cy.off("cxttap", "edge", handleEdgeRightClick)
+      }
     }
-  }, [elements, connectionType, isConnecting, sourceNode])
+  }, [elements, connectionType, isConnecting, sourceNode, loadCanvasData])
+
+  if (loading) {
+    return (
+      <div className="flex-1 relative bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-500">Loading canvas data...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 relative bg-gray-50 flex items-center justify-center">
+        <div className="text-red-500">Error loading canvas data: {error}</div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 relative bg-gray-50">
@@ -252,7 +321,7 @@ export function CanvasArea() {
         elements={elements}
         style={{ width: "100%", height: "100%" }}
         stylesheet={cytoscapeStylesheet}
-        cy={(cy) => {
+        cy={(cy: any) => {
           cyRef.current = cy
           cy.autoungrabify(false)
           cy.autounselectify(true)
@@ -276,7 +345,11 @@ export function CanvasArea() {
 
       <CurrentRunsModal open={showCurrentRunsModal} onOpenChange={setShowCurrentRunsModal} />
 
-      <CustomerSegmentModal open={showCustomerSegmentModal} onOpenChange={setShowCustomerSegmentModal} />
+      <CustomerSegmentModal 
+        open={showCustomerSegmentModal} 
+        onOpenChange={setShowCustomerSegmentModal} 
+        segmentData={selectedNodeData}
+      />
 
       <PricingPlanModal 
         open={showPricingPlanModal} 

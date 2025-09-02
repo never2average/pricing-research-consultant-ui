@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { DollarSign, X, ChevronDown, Check } from "lucide-react"
+import { apiService } from "@/lib/api-service"
+import { CustomerSegment } from "@/lib/api-types"
 
 interface CreatePriceExperimentModalProps {
   open: boolean
@@ -26,12 +28,33 @@ export function CreatePriceExperimentModal({ open, onOpenChange }: CreatePriceEx
     { value: "optimization", label: "Optimization" }
   ]
 
-  const customerSegments = [
-    "Enterprise", "SMB Growth", "Startup", "Enterprise Trials", "Free-to-Paid", "New Users", "Existing Users"
-  ]
-
+  const [availableSegments, setAvailableSegments] = useState<CustomerSegment[]>([])
+  const [loadingSegments, setLoadingSegments] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  
   const [isSegmentDropdownOpen, setIsSegmentDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Load customer segments when modal opens
+  useEffect(() => {
+    if (open) {
+      loadCustomerSegments()
+    }
+  }, [open])
+
+  const loadCustomerSegments = async () => {
+    try {
+      setLoadingSegments(true)
+      const segments = await apiService.getCustomerSegments()
+      setAvailableSegments(segments)
+    } catch (err) {
+      console.error('Failed to load customer segments:', err)
+      setError('Failed to load customer segments')
+    } finally {
+      setLoadingSegments(false)
+    }
+  }
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -55,32 +78,54 @@ export function CreatePriceExperimentModal({ open, onOpenChange }: CreatePriceEx
     }
   }, [open])
 
-  const toggleSegment = (segment: string) => {
+  const toggleSegment = (segmentId: string) => {
     setFormData(prev => ({
       ...prev,
-      customerSegments: prev.customerSegments.includes(segment)
-        ? prev.customerSegments.filter(s => s !== segment)
-        : [...prev.customerSegments, segment]
+      customerSegments: prev.customerSegments.includes(segmentId)
+        ? prev.customerSegments.filter(s => s !== segmentId)
+        : [...prev.customerSegments, segmentId]
     }))
   }
 
-  const removeSegment = (segment: string) => {
+  const removeSegment = (segmentId: string) => {
     setFormData(prev => ({
       ...prev,
-      customerSegments: prev.customerSegments.filter(s => s !== segment)
+      customerSegments: prev.customerSegments.filter(s => s !== segmentId)
     }))
   }
 
-  const handleSubmit = () => {
-    console.log("Creating price experiment with:", formData)
-    // Reset form
-    setFormData({
-      experimentGoal: "",
-      customerSegments: [],
-      prompt: ""
-    })
-    setIsSegmentDropdownOpen(false)
-    onOpenChange(false)
+  const handleSubmit = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Start orchestration workflow for pricing experiment
+      await apiService.startOrchestration({
+        workflow_type: "pricing_analysis",
+        parameters: {
+          analysis_depth: "comprehensive",
+          experiment_goal: formData.experimentGoal,
+          target_segments: formData.customerSegments,
+          experiment_prompt: formData.prompt
+        }
+      })
+
+      console.log("Price experiment orchestration started successfully")
+      
+      // Reset form
+      setFormData({
+        experimentGoal: "",
+        customerSegments: [],
+        prompt: ""
+      })
+      setIsSegmentDropdownOpen(false)
+      onOpenChange(false)
+    } catch (err) {
+      console.error('Failed to create price experiment:', err)
+      setError(err instanceof Error ? err.message : 'Failed to create price experiment')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -132,20 +177,26 @@ export function CreatePriceExperimentModal({ open, onOpenChange }: CreatePriceEx
               {isSegmentDropdownOpen && (
                 <div className="absolute top-full left-0 z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg">
                   <div className="max-h-60 overflow-auto p-1">
-                    {customerSegments.map((segment) => (
-                      <div
-                        key={segment}
-                        className="flex items-center space-x-2 px-3 py-2 hover:bg-gray-50 cursor-pointer rounded-sm"
-                        onClick={() => toggleSegment(segment)}
-                      >
-                        <div className="w-4 h-4 border border-gray-300 rounded flex items-center justify-center">
-                          {formData.customerSegments.includes(segment) && (
-                            <Check className="w-3 h-3 text-blue-600" />
-                          )}
+                    {loadingSegments ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">Loading segments...</div>
+                    ) : availableSegments.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">No segments available</div>
+                    ) : (
+                      availableSegments.map((segment) => (
+                        <div
+                          key={segment._id}
+                          className="flex items-center space-x-2 px-3 py-2 hover:bg-gray-50 cursor-pointer rounded-sm"
+                          onClick={() => toggleSegment(segment._id)}
+                        >
+                          <div className="w-4 h-4 border border-gray-300 rounded flex items-center justify-center">
+                            {formData.customerSegments.includes(segment._id) && (
+                              <Check className="w-3 h-3 text-blue-600" />
+                            )}
+                          </div>
+                          <span className="text-sm">{segment.customer_segment_name}</span>
                         </div>
-                        <span className="text-sm">{segment}</span>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
               )}
@@ -153,15 +204,18 @@ export function CreatePriceExperimentModal({ open, onOpenChange }: CreatePriceEx
             
             {formData.customerSegments.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
-                {formData.customerSegments.map((segment) => (
-                  <Badge key={segment} variant="secondary" className="flex items-center gap-1">
-                    {segment}
-                    <X
-                      className="w-3 h-3 cursor-pointer hover:text-red-500"
-                      onClick={() => removeSegment(segment)}
-                    />
-                  </Badge>
-                ))}
+                {formData.customerSegments.map((segmentId) => {
+                  const segment = availableSegments.find(s => s._id === segmentId)
+                  return (
+                    <Badge key={segmentId} variant="secondary" className="flex items-center gap-1">
+                      {segment ? segment.customer_segment_name : segmentId}
+                      <X
+                        className="w-3 h-3 cursor-pointer hover:text-red-500"
+                        onClick={() => removeSegment(segmentId)}
+                      />
+                    </Badge>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -178,18 +232,30 @@ export function CreatePriceExperimentModal({ open, onOpenChange }: CreatePriceEx
           </div>
         </div>
 
+        {/* Error Display */}
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)} 
+            className="flex-1"
+            disabled={loading}
+          >
             Cancel
           </Button>
           <Button 
             onClick={handleSubmit}
-            disabled={!formData.experimentGoal || !formData.prompt}
+            disabled={!formData.experimentGoal || !formData.prompt || loading}
             className="flex-1"
           >
             <DollarSign className="w-4 h-4 mr-2" />
-            Create Experiment
+            {loading ? "Creating..." : "Create Experiment"}
           </Button>
         </div>
       </DialogContent>

@@ -1,15 +1,36 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, History } from "lucide-react"
 import { CurrentRunsModal } from "./current-runs-modal"
+import { apiService } from "@/lib/api-service"
+import { Product } from "@/lib/api-types"
 
 export function TopHeader() {
   const [selectedProject, setSelectedProject] = useState("")
   const [currentRunsOpen, setCurrentRunsOpen] = useState(false)
+  const [projects, setProjects] = useState<Product[]>([])
+  const [loadingProjects, setLoadingProjects] = useState(false)
+
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        setLoadingProjects(true)
+        const projectsData = await apiService.getAllProducts()
+        setProjects(projectsData)
+      } catch (err) {
+        console.error('Failed to load projects:', err)
+        // Keep projects empty array on error to prevent UI breakage
+      } finally {
+        setLoadingProjects(false)
+      }
+    }
+
+    loadProjects()
+  }, [])
 
   return (
     <>
@@ -26,13 +47,19 @@ export function TopHeader() {
 
           {/* Project Dropdown */}
           <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger className="w-32 md:w-40 rounded-full text-sm border-0 bg-transparent">
-              <SelectValue placeholder="Project Name" />
+            <SelectTrigger className="w-32 md:w-40 rounded-full text-sm border-0 bg-transparent" disabled={loadingProjects}>
+              <SelectValue placeholder={loadingProjects ? "Loading..." : "Project Name"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="project1">Project Alpha</SelectItem>
-              <SelectItem value="project2">Project Beta</SelectItem>
-              <SelectItem value="project3">Project Gamma</SelectItem>
+              {projects.length === 0 && !loadingProjects ? (
+                <SelectItem value="" disabled>No projects available</SelectItem>
+              ) : (
+                projects.map((project) => (
+                  <SelectItem key={project._id} value={project._id}>
+                    {project.name}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
 
