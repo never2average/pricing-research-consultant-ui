@@ -77,18 +77,19 @@ export function ProjectDropdowns() {
       {dropdownConfig.map((config) => {
         const IconComponent = config.icon
         return (
-          <div key={config.key} className="flex items-center gap-2">
+          <div key={config.key} className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1">
               <IconComponent className="w-3 h-3 text-gray-600" />
               <label className="text-xs font-medium text-gray-700 min-w-fit">{config.label}</label>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="bg-transparent text-xs md:text-sm flex-1">
-                  {selections[config.key]} <ChevronDown className="w-3 h-3 ml-1" />
+                <Button variant="outline" size="sm" className="bg-transparent text-xs w-32 justify-between">
+                  <span className="truncate">{selections[config.key]}</span>
+                  <ChevronDown className="w-3 h-3 ml-1 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent>
+              <DropdownMenuContent align="end" className="w-40">
                 {config.options.map((option) => (
                   <DropdownMenuItem
                     key={option.value}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Fragment } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -112,8 +112,8 @@ export function CurrentRunsModal({ open, onOpenChange }: CurrentRunsModalProps) 
               </thead>
               <tbody>
                 {runs.map((run, index) => (
-                  <>
-                    <tr key={run.id} className={`border-b hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-25'} ${selectedLogRunId === run.id ? 'bg-blue-50' : ''}`}>
+                  <Fragment key={run.id}>
+                    <tr className={`border-b hover:bg-gray-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-25'} ${selectedLogRunId === run.id ? 'bg-blue-50' : ''}`}>
                       <td className="py-3 px-4">
                         <Badge className={`${getStatusColor(run.status)} flex items-center gap-1 w-fit`}>
                           {getStatusIcon(run.status)}
@@ -159,7 +159,7 @@ export function CurrentRunsModal({ open, onOpenChange }: CurrentRunsModalProps) 
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
