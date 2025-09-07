@@ -172,7 +172,7 @@ class ApiService {
   }
 
   async getAllProducts(): Promise<Product[]> {
-    return this.request<Product[]>('/product/listall')
+    return this.request<Product[]>('/product/list')
   }
 
   async createProduct(product: Omit<Product, '_id'>): Promise<Product> {
