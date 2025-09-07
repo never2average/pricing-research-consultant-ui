@@ -51,15 +51,11 @@ export function TopHeader() {
               <SelectValue placeholder={loadingProjects ? "Loading..." : "Project Name"} />
             </SelectTrigger>
             <SelectContent>
-              {projects.length === 0 && !loadingProjects ? (
-                <SelectItem value="" disabled>No projects available</SelectItem>
-              ) : (
-                projects.map((project) => (
-                  <SelectItem key={project._id} value={project._id}>
-                    {project.name}
-                  </SelectItem>
-                ))
-              )}
+              {projects.map((project) => (
+                <SelectItem key={project._id} value={project._id}>
+                  {project.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 

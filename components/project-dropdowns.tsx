@@ -74,9 +74,21 @@ export function ProjectDropdowns() {
           setDropdownOptions(prev => ({ ...prev, [config.key]: options }))
         } catch (err) {
           console.error(`Failed to load ${config.key} options:`, err)
+          let errorMessage = `Failed to load ${config.label.toLowerCase()}`
+          
+          if (err instanceof Error) {
+            if (err.message.includes('Cannot connect to backend server')) {
+              errorMessage = 'Backend server not accessible'
+            } else if (err.message.includes('Failed to fetch')) {
+              errorMessage = 'Network connection failed'
+            } else {
+              errorMessage = err.message
+            }
+          }
+          
           setError(prev => ({ 
             ...prev, 
-            [config.key]: err instanceof Error ? err.message : `Failed to load ${config.label.toLowerCase()}` 
+            [config.key]: errorMessage
           }))
           // Set empty options on error to prevent UI breakage
           setDropdownOptions(prev => ({ ...prev, [config.key]: [] }))
@@ -131,7 +143,7 @@ export function ProjectDropdowns() {
                   </DropdownMenuItem>
                 ) : hasError ? (
                   <DropdownMenuItem disabled>
-                    <span className="text-red-500 text-xs">Error loading data</span>
+                    <span className="text-red-500 text-xs">{error[config.key]}</span>
                   </DropdownMenuItem>
                 ) : options.length === 0 ? (
                   <DropdownMenuItem disabled>

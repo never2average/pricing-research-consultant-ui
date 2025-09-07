@@ -20,19 +20,17 @@ import {
   ListResponse,
   ReportSection
 } from './api-types'
-
-const API_BASE_URL = 'http://localhost:5000'
+import { API_CONFIG } from './config'
 
 class ApiService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint}`
+    const url = `${API_CONFIG.BASE_URL}${endpoint}`
     
     const defaultHeaders = {
       'Content-Type': 'application/json',
     }
 
     const config: RequestInit = {
-      headers: defaultHeaders,
       ...options,
       headers: {
         ...defaultHeaders,
@@ -51,6 +49,10 @@ class ApiService {
       const data = await response.json()
       return data
     } catch (error) {
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        console.error(`Network error: Cannot connect to ${url}. Is the backend server running?`)
+        throw new Error(`Cannot connect to backend server at ${API_CONFIG.BASE_URL}. Please ensure the server is running.`)
+      }
       console.error(`API request failed for ${endpoint}:`, error)
       throw error
     }
@@ -226,6 +228,11 @@ class ApiService {
 
   async getLLMTextConfig(): Promise<LLMTextConfig> {
     return this.request<LLMTextConfig>('/llmstxt/get')
+  }
+
+  // Health Check API
+  async healthCheck(): Promise<{ status: string; timestamp: string }> {
+    return this.request<{ status: string; timestamp: string }>('/health')
   }
 
   // Automation APIs

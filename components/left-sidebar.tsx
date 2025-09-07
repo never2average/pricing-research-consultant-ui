@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Copy, FileText, FileCode, Play, CheckCircle, Circle, ChevronDown, ChevronRight, AlertCircle, Lightbulb } from "lucide-react"
 import { ProjectDropdowns } from "./project-dropdowns"
 import { FormSection } from "./form-section"
+
 import { apiService } from "@/lib/api-service"
 import { EnvironmentConfig, LLMTextConfig } from "@/lib/api-types"
 
@@ -201,6 +202,9 @@ ${links.filter(link => link.is_active !== false).map(link => `  {
         </div>
         <p className="text-xs text-blue-600">{completedSteps.size} of 3 steps completed</p>
       </div>
+      
+
+      
       {/* Step 1: Project Setup & Configuration */}
       <div className="space-y-2">
         <StepHeader 

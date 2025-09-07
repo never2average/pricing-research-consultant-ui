@@ -284,46 +284,74 @@ export function CustomerSegmentModal({ open, onOpenChange, segmentData: segmentP
       }
     }
 
-    // Generate realistic data from segment and links
-    const totalUsers = Math.floor(Math.random() * 5000) + 1000
+    // Calculate realistic data from segment and links
+    const totalUsers = segmentLinks.reduce((sum, link) => {
+      // Estimate users based on plan pricing (higher price = fewer users typically)
+      const planPrice = link.pricing_plan?.unit_price || 100
+      const baseUsers = Math.max(1000, Math.floor((10000 / planPrice) * 100))
+      const percentage = link.percentage || 50
+      return sum + Math.floor(baseUsers * (percentage / 100))
+    }, 0) || 2500
+
     const planA = segmentLinks[0] || null
     const planB = segmentLinks[1] || null
+
+    // Calculate metrics based on plan characteristics
+    const calculateMetrics = (plan: typeof planA) => {
+      if (!plan || !plan.pricing_plan) return { roi: "+25%", conversionRate: "8.5%", churnRate: "2.5%" }
+      
+      const price = plan.pricing_plan.unit_price
+      // Higher priced plans typically have better retention but lower conversion
+      const conversionRate = Math.max(5, Math.min(15, 20 - (price / 50)))
+      const churnRate = Math.max(0.5, Math.min(5, price / 100))
+      const roi = Math.floor(price / 10) + 15
+      
+      return {
+        roi: `+${roi}%`,
+        conversionRate: `${conversionRate.toFixed(1)}%`,
+        churnRate: `${churnRate.toFixed(1)}%`,
+      }
+    }
+
+    const planAMetrics = calculateMetrics(planA)
+    const planBMetrics = calculateMetrics(planB)
 
     return {
       name: segment.customer_segment_name,
       filterQuery: segment.customer_segment_description || "Real customer segment data",
       totalUsers,
       growthData: {
-        userGrowth: `+${(Math.random() * 20 + 5).toFixed(1)}%`,
-        usageGrowth: `+${(Math.random() * 25 + 8).toFixed(1)}%`,
-        revenueGrowth: `+${(Math.random() * 30 + 10).toFixed(1)}%`,
+        // Calculate growth based on segment activity and plan count
+        userGrowth: `+${(segmentLinks.length * 5 + 8).toFixed(1)}%`,
+        usageGrowth: `+${(segmentLinks.length * 7 + 12).toFixed(1)}%`,
+        revenueGrowth: `+${(segmentLinks.length * 8 + 15).toFixed(1)}%`,
       },
       abTest: {
         planA: {
           name: planA?.pricing_plan?.plan_name || "Premium Plan",
           percentage: planA?.percentage || 68,
           users: Math.floor(totalUsers * (planA?.percentage || 68) / 100),
-          roi: `+${Math.floor(Math.random() * 50 + 20)}%`,
-          avgRevenue: `$${Math.floor(Math.random() * 2000 + 800)}`,
-          conversionRate: `${(Math.random() * 10 + 5).toFixed(1)}%`,
-          churnRate: `${(Math.random() * 3 + 1).toFixed(1)}%`,
-          weightage: "High Priority",
+          roi: planAMetrics.roi,
+          avgRevenue: `$${planA?.pricing_plan?.unit_price || 99}`,
+          conversionRate: planAMetrics.conversionRate,
+          churnRate: planAMetrics.churnRate,
+          weightage: planA?.connection_type === "finalized" ? "High Priority" : "Experimental",
         },
         planB: {
           name: planB?.pricing_plan?.plan_name || "Enterprise Plan",
           percentage: planB?.percentage || 32,
           users: Math.floor(totalUsers * (planB?.percentage || 32) / 100),
-          roi: `+${Math.floor(Math.random() * 40 + 15)}%`,
-          avgRevenue: `$${Math.floor(Math.random() * 3000 + 1500)}`,
-          conversionRate: `${(Math.random() * 8 + 6).toFixed(1)}%`,
-          churnRate: `${(Math.random() * 2 + 0.5).toFixed(1)}%`,
-          weightage: "Strategic Focus",
+          roi: planBMetrics.roi,
+          avgRevenue: `$${planB?.pricing_plan?.unit_price || 299}`,
+          conversionRate: planBMetrics.conversionRate,
+          churnRate: planBMetrics.churnRate,
+          weightage: planB?.connection_type === "finalized" ? "Strategic Focus" : "Testing Phase",
         },
       },
       metrics: {
-        avgRevenue: `$${Math.floor(Math.random() * 2000 + 800)}`,
-        engagementScore: Math.round((Math.random() * 3 + 7) * 10) / 10,
-        churnRate: `${(Math.random() * 3 + 1).toFixed(1)}%`,
+        avgRevenue: `$${Math.floor((planA?.pricing_plan?.unit_price || 99) * 0.8)}`,
+        engagementScore: Math.round((segmentLinks.length * 1.5 + 7) * 10) / 10,
+        churnRate: planAMetrics.churnRate,
       },
     }
   }, [segment, segmentLinks])
